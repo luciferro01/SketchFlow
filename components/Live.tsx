@@ -1,9 +1,15 @@
 import { useMyPresence, useOthers } from "@/liveblocks.config";
 import LiveCursors from "./Cursors/LiveCursors";
-import { useCallback } from "react";
+import { KeyboardEvent, useCallback, useEffect, useState } from "react";
+import { CursorMode } from "@/types/type";
+import CursorChat from "./Cursors/CursorChat";
 
 const Live = () => {
   const [{ cursor }, updateMyPresence] = useMyPresence() as any;
+
+  const [cursorState, setCursorState] = useState({
+    mode: CursorMode.Hidden,
+  });
 
   // Listen to mouse events to change the cursor state
   const handlePointerMove = useCallback((event: React.PointerEvent) => {
@@ -23,6 +29,7 @@ const Live = () => {
 
   // Hide the cursor when the mouse leaves the canvas
   const handlePointerLeave = useCallback(() => {
+    setCursorState({ mode: CursorMode.Hidden });
     updateMyPresence({
       cursor: null,
       message: null,
@@ -45,6 +52,38 @@ const Live = () => {
     // if cursor is in reaction mode, set isPressed to true
   }, []);
 
+  // Listen to keyboard events to change the cursor state
+  useEffect(() => {
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "/") {
+        setCursorState({
+          mode: CursorMode.Chat,
+          previousMessage: null,
+          message: "",
+        });
+      } else if (e.key === "Escape") {
+        updateMyPresence({ message: "" });
+        setCursorState({ mode: CursorMode.Hidden });
+      } else if (e.key === "e") {
+        setCursorState({ mode: CursorMode.ReactionSelector });
+      }
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "/") {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [updateMyPresence]);
+
   const others = useOthers();
   return (
     <div
@@ -55,6 +94,15 @@ const Live = () => {
     >
       <h1 className="text-2xl text-green-700">Figma Tutorial</h1>
       <LiveCursors others={others} />
+      {/* If cursor is in chat mode, show the chat cursor */}
+      {cursor && (
+        <CursorChat
+          cursor={cursor}
+          cursorState={cursorState}
+          setCursorState={setCursorState}
+          updateMyPresence={updateMyPresence}
+        />
+      )}
     </div>
   );
 };
